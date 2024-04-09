@@ -4,7 +4,7 @@ from typing_extensions import Self
 from viam.components.camera import Camera
 from viam.media.video import RawImage
 from viam.proto.service.vision import Classification, Detection
-from viam.services.vision import Vision, VisionClient
+from viam.services.vision import Vision
 from viam.module.types import Reconfigurable
 from viam.resource.types import Model, ModelFamily
 from viam.proto.app.robot import ServiceConfig
@@ -13,11 +13,14 @@ from viam.resource.base import ResourceBase
 from viam.utils import ValueTypes
 from viam.logging import getLogger
 from PIL import Image
-from src.properties import Properties
+
 import torchvision
-from torchvision.models import get_model, get_model_weights, get_weight, list_models
+from torchvision.models import get_model, get_model_weights, list_models
+from viam.components.camera import CameraClient
 from src.preprocess import Preprocessor
+from src.properties import Properties
 from src.utils import decode_image
+
 import torch
 from torch import Tensor
 import viam
@@ -56,10 +59,12 @@ class TorchVisionService(Vision, Reconfigurable):
     def reconfigure(
         self, config: ServiceConfig, dependencies: Mapping[ResourceName, ResourceBase]
     ):
-        self.camera_name = config.attributes.fields["camera_name"].string_value
-        self.camera = cast(
-            dependencies[Camera.get_resource_name(self.camera_name)], VisionClient
+        device = (
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         )
+
+        self.camera_name = config.attributes.fields["camera_name"].string_value
+        self.camera = dependencies[Camera.get_resource_name(self.camera_name)]
 
         def get_attribute_from_config(attribute_name: str, default, of_type=None):
             if attribute_name not in config.attributes.fields:
@@ -86,8 +91,14 @@ class TorchVisionService(Vision, Reconfigurable):
                 return dict(config.attributes.fields[attribute_name].struct_value)
 
         model_name = get_attribute_from_config("model_name", None, str)
+        self.properties = Properties(
+            implements_classification=True,
+            implements_detection=False,
+            implements_get_object_pcd=False,
+        )
         if model_name in DETECTION_MODELS:
-            self.properties.implements_classification = True
+            self.properties.implements_classification = False
+            self.properties.implements_detection = True
 
         weights = get_attribute_from_config("weights", "DEFAULT")
         try:
@@ -102,11 +113,6 @@ class TorchVisionService(Vision, Reconfigurable):
         self.weights: Weights = getattr(all_weights, weights)
         self.preprocessor = Preprocessor(weights_transform=self.weights.transforms())
         self.model.eval()
-        self.properties = Properties(
-            implements_classification=True,
-            implements_detection=True,
-            implements_get_object_pcd=False,
-        )
 
     async def get_object_point_clouds(
         self,
@@ -130,12 +136,24 @@ class TorchVisionService(Vision, Reconfigurable):
     ) -> List[Detection]:
         if not self.properties.implements_detection:
             raise NotImplementedError
-
-        # img = decode_image(image)
+        input_tensor = self.preprocessor(image)
         with torch.no_grad():
-            output = self.model(self.preprocessor(image))
-
-        return output
+            prediction: Tensor = self.model(input_tensor)[0]
+        labels = [self.weights.meta["categories"][i] for i in prediction["labels"]]
+        scores = prediction["scores"]
+        boxes = prediction["boxes"].to(torch.int64).tolist()
+        res = [
+            Detection(
+                x_min=x_min,
+                y_min=y_min,
+                x_max=x_max,
+                y_max=y_max,
+                confidence=score,
+                class_name=label,
+            )
+            for (x_min, y_min, x_max, y_max), score, label in zip(boxes, scores, labels)
+        ]
+        return res
 
     async def get_classifications(
         self,
@@ -146,7 +164,7 @@ class TorchVisionService(Vision, Reconfigurable):
         timeout: Optional[float] = None,
     ) -> List[Classification]:
         if not self.properties.implements_classification:
-            raise NotImplementedError
+            return NotImplementedError
 
         input_tensor = self.preprocessor(image)
         # input_tensor = image
@@ -178,12 +196,10 @@ class TorchVisionService(Vision, Reconfigurable):
     ) -> List[Classification]:
         if not self.properties.implements_classification:
             raise NotImplementedError
+
         im = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
         image = decode_image(im)
         input_tensor = self.preprocessor(image)
-        # input_tensor = image
-        # torchvision.utils.save_image(input_tensor, "./input.jpg")
-        # img = decode_image(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)
 
@@ -203,11 +219,34 @@ class TorchVisionService(Vision, Reconfigurable):
     async def get_detections_from_camera(
         self, camera_name: str, *, extra: Mapping[str, Any], timeout: float
     ) -> List[Detection]:
+        LOGGER.error(f"REACHED HERE")
         if not self.properties.implements_detection:
             raise NotImplementedError
 
-        else:
-            raise NotImplementedError
+        LOGGER.error(f"REACHED HERE2")
+        im = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
+        image = decode_image(im)
+        input_tensor = self.preprocessor(image)
+        # input_tensor = image
+        # torchvision.utils.save_image(input_tensor, "./input.jpg")
+        # img = decode_image(image)
+        with torch.no_grad():
+            prediction: Tensor = self.model(input_tensor)[0]
+        labels = [self.weights.meta["categories"][i] for i in prediction["labels"]]
+        scores = prediction["scores"]
+        boxes = prediction["boxes"].to(torch.int64).tolist()
+        res = [
+            Detection(
+                x_min=x_min,
+                y_min=y_min,
+                x_max=x_max,
+                y_max=y_max,
+                confidence=score,
+                class_name=label,
+            )
+            for (x_min, y_min, x_max, y_max), score, label in zip(boxes, scores, labels)
+        ]
+        return res
 
     async def do_command(
         self,
