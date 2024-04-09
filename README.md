@@ -1,7 +1,6 @@
 # VIAM FACE IDENTIFICATION MODULE
 
 This is a [Viam module](https://docs.viam.com/extend/modular-resources/) providing a model of vision service for [TorchVision's New Multi-Weight Support API](https://pytorch.org/blog/introducing-torchvision-new-multi-weight-support-api/).
-
 <p align="center">
  <img src="https://pytorch.org/assets/images/torchvision_gif.gif" width=80%, height=70%>
  </p>
@@ -21,13 +20,6 @@ Depending on the type of models configured, the module implements:
 
 > [!NOTE]  
 >See [vision service API](https://docs.viam.com/services/vision/#api) for more details.
-
-
-## Installation with `pip install` 
-
-```
-pip install -r requirements.txt
-```
 
 ## Configure your `torchvision` vision service
 
