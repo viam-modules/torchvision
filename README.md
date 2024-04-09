@@ -1,4 +1,5 @@
-# VIAM FACE IDENTIFICATION MODULE
+# Viam Torchvision Module
+
 
 This is a [Viam module](https://docs.viam.com/extend/modular-resources/) providing a model of vision service for [TorchVision's New Multi-Weight Support API](https://pytorch.org/blog/introducing-torchvision-new-multi-weight-support-api/).
 <p align="center">
