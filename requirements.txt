@@ -1,0 +1,6 @@
+viam-sdk
+numpy
+pyinstaller
+google-api-python-client
+torch
+torchvision
