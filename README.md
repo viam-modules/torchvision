@@ -1,6 +1,6 @@
 # VIAM FACE IDENTIFICATION MODULE
 
-This is a [Viam module](https://docs.viam.com/extend/modular-resources/) providing a model of vision service for [TorchVision's Multi-Weight Support API](https://pytorch.org/blog/introducing-torchvision-new-multi-weight-support-api/).
+This is a [Viam module](https://docs.viam.com/extend/modular-resources/) providing a model of vision service for [TorchVision's New Multi-Weight Support API](https://pytorch.org/blog/introducing-torchvision-new-multi-weight-support-api/).
 
 <p align="center">
  <img src="https://pytorch.org/assets/images/torchvision_gif.gif" width=80%, height=70%>
@@ -87,7 +87,7 @@ Navigate to the **Config** tab of your robot’s page in [the Viam app](https://
         ]
       },
       "depends_on": [],
-      "name": "trans"
+      "name": "detections"
     }
   ]
 }
