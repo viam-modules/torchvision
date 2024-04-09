@@ -1,4 +1,4 @@
-from typing import ClassVar, List, Mapping, Sequence, Any, Dict, Optional, Union, cast
+from typing import ClassVar, List, Mapping, Sequence, Any, Dict, Optional, Union
 from viam.media.video import CameraMimeType
 from typing_extensions import Self
 from viam.components.camera import Camera
@@ -25,6 +25,7 @@ import torch
 from torch import Tensor
 import viam
 from torchvision.models import Weights
+from torchvision.utils import draw_bounding_boxes
 
 DETECTION_MODELS: list = list_models(module=torchvision.models.detection)
 
@@ -64,7 +65,10 @@ class TorchVisionService(Vision, Reconfigurable):
         )
 
         self.camera_name = config.attributes.fields["camera_name"].string_value
-        self.camera = dependencies[Camera.get_resource_name(self.camera_name)]
+        try:
+            self.camera = dependencies[Camera.get_resource_name(self.camera_name)]
+        except:
+            pass
 
         def get_attribute_from_config(attribute_name: str, default, of_type=None):
             if attribute_name not in config.attributes.fields:
@@ -109,10 +113,16 @@ class TorchVisionService(Vision, Reconfigurable):
                 f"weights: {weights} are not availble for model: {model_name}"
             )
         all_weights = get_model_weights(model_name)
-        # self.weights = all_weights.__getattribute__(weights)
         self.weights: Weights = getattr(all_weights, weights)
         self.preprocessor = Preprocessor(weights_transform=self.weights.transforms())
         self.model.eval()
+
+        self.labels_confidences = get_attribute_from_config(
+            "labels_confidences", dict()
+        )
+        self.default_minimum_confidence = get_attribute_from_config(
+            "default_minimum_confidence", 0
+        )
 
     async def get_object_point_clouds(
         self,
@@ -153,6 +163,7 @@ class TorchVisionService(Vision, Reconfigurable):
             )
             for (x_min, y_min, x_max, y_max), score, label in zip(boxes, scores, labels)
         ]
+        res = self.filter_output(res)
         return res
 
     async def get_classifications(
@@ -184,6 +195,7 @@ class TorchVisionService(Vision, Reconfigurable):
             Classification(class_name=name, confidence=score)
             for name, score in zip(category_names, scores)
         ]
+        res = self.filter_output(res)
         return res
 
     async def get_classifications_from_camera(
@@ -214,16 +226,14 @@ class TorchVisionService(Vision, Reconfigurable):
             Classification(class_name=name, confidence=score)
             for name, score in zip(category_names, scores)
         ]
+        res = self.filter_output(res)
         return res
 
     async def get_detections_from_camera(
         self, camera_name: str, *, extra: Mapping[str, Any], timeout: float
     ) -> List[Detection]:
-        LOGGER.error(f"REACHED HERE")
         if not self.properties.implements_detection:
             raise NotImplementedError
-
-        LOGGER.error(f"REACHED HERE2")
         im = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
         image = decode_image(im)
         input_tensor = self.preprocessor(image)
@@ -246,6 +256,7 @@ class TorchVisionService(Vision, Reconfigurable):
             )
             for (x_min, y_min, x_max, y_max), score, label in zip(boxes, scores, labels)
         ]
+        res = self.filter_output(res)
         return res
 
     async def do_command(
@@ -256,3 +267,18 @@ class TorchVisionService(Vision, Reconfigurable):
         **kwargs,
     ):
         raise NotImplementedError
+
+    def filter_output(
+        self, outputs: Union[List[Detection], List[Classification]]
+    ) -> Union[List[Detection], List[Classification]]:
+        res = []
+        for detection in outputs:
+            if detection.class_name in self.labels_confidences:
+                threshold = self.labels_confidences[detection.class_name]
+            else:
+                threshold = self.default_minimum_confidence
+
+            if detection.confidence > threshold:
+                res.append(detection)
+
+        return res

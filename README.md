@@ -6,6 +6,8 @@ This is a [Viam module](https://docs.viam.com/extend/modular-resources/) providi
  <img src="https://pytorch.org/assets/images/torchvision_gif.gif" width=80%, height=70%>
  </p>
 
+
+ For a given model architecture (e.g. *ResNet50*), multiple weights can be available and each of those weights comes with Metadata (preprocessing and labels). 
 ## Getting started
 
 To use this module, follow these instructions to [add a module from the Viam Registry](https://docs.viam.com/modular-resources/configure/#add-a-module-from-the-viam-registry) and select the `viam:vision:torchvision` model from the [`torchvision` module](https://app.viam.com/module/viam/torchvision).
@@ -44,7 +46,11 @@ Navigate to the **Config** tab of your robot’s page in [the Viam app](https://
     {
       "attributes": {
         "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
-        "camera_name": "cam"
+        "camera_name": "cam", 
+        "labels_confidences": {"grasshopper": 0.5, 
+                                "cricket": 0.45 },
+        "default_minimum_confidence": 0.3
+        
       },
       "name": "detector-module",
       "type": "vision",
@@ -92,11 +98,16 @@ Navigate to the **Config** tab of your robot’s page in [the Viam app](https://
 The following attributes are available to configure your deepface module:
 
 
-| Name          | Type   | Inclusion    | Default   | Description                                                                                                                                                                        |
-| ------------- | ------ | ------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `camera_name` | string | **Required** |           | Camera name to be used a source.                                                                                                                                                   |
-| `model_name`  | string | **Required** |           | Vision model name as expected by the method [get_model()](https://pytorch.org/vision/main/models.html#listing-and-retrieving-available-models) from torchvision multi-weight API.  |
-| `weights`     | string | Optional     | `DEFAULT` | Weights model name as expected by the method [get_model()](https://pytorch.org/vision/main/models.html#listing-and-retrieving-available-models) from torchvision multi-weight API. |
+| Name                         | Type             | Inclusion    | Default   | Description                                                                                                                                                                                                                                                         |
+| ---------------------------- | ---------------- | ------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `camera_name`                | string           | **Required** |           | Camera name to be used a source.                                                                                                                                                                                                                                    |
+| `model_name`                 | string           | **Required** |           | Vision model name as expected by the method [get_model()](https://pytorch.org/vision/main/models.html#listing-and-retrieving-available-models) from torchvision multi-weight API.                                                                                   |
+| `weights`                    | string           | Optional     | `DEFAULT` | Weights model name as expected by the method [get_model()](https://pytorch.org/vision/main/models.html#listing-and-retrieving-available-models) from torchvision multi-weight API.                                                                                  |
+| `default_minimum_confidence` | float            | Optional     |           | Default minimum confidence for all labels that are not specified in `label_confidences`.                                                                                                                                                                            |
+| `labels_confidences`         | dict[str, float] | Optional     |           | Dictionary specifying minimum confidence thresholds for specific labels. Example: `{"grasshopper": 0.5, "cricket": 0.45}`. If a label has a confidence set lower that `default_minimum_confidence`, that confidence over-writes the default for the specified label |
+if "labels" is left blank, no filtering on labels will be applied.
+|
+
 
 
 ## RESSOURCES
