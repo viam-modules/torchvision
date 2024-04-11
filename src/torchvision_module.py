@@ -16,7 +16,6 @@ from PIL import Image
 
 import torchvision
 from torchvision.models import get_model, get_model_weights, list_models
-from viam.components.camera import CameraClient
 from src.preprocess import Preprocessor
 from src.properties import Properties
 from src.utils import decode_image
@@ -25,7 +24,6 @@ import torch
 from torch import Tensor
 import viam
 from torchvision.models import Weights
-from torchvision.utils import draw_bounding_boxes
 
 DETECTION_MODELS: list = list_models(module=torchvision.models.detection)
 
@@ -42,7 +40,6 @@ class TorchVisionService(Vision, Reconfigurable):
     def new_service(
         cls, config: ServiceConfig, dependencies: Mapping[ResourceName, ResourceBase]
     ) -> Self:
-        LOGGER.error(f"VIAM VERSION IS {viam.__version__}")
         service = cls(config.name)
         service.reconfigure(config, dependencies)
         return service
@@ -91,6 +88,8 @@ class TorchVisionService(Vision, Reconfigurable):
                 return config.attributes.fields[attribute_name].number_value
             elif type_default == str:
                 return config.attributes.fields[attribute_name].string_value
+            elif type_default == list:
+                return list(config.attributes.fields[attribute_name].list_value)
             elif type_default == dict:
                 return dict(config.attributes.fields[attribute_name].struct_value)
 
@@ -107,14 +106,28 @@ class TorchVisionService(Vision, Reconfigurable):
         weights = get_attribute_from_config("weights", "DEFAULT")
         try:
             self.model = get_model(model_name, weights=weights)
-
         except KeyError:
             raise KeyError(
                 f"weights: {weights} are not availble for model: {model_name}"
             )
         all_weights = get_model_weights(model_name)
         self.weights: Weights = getattr(all_weights, weights)
-        self.preprocessor = Preprocessor(weights_transform=self.weights.transforms())
+        input_size = get_attribute_from_config("input_size", None, list)
+        mean_rgb = get_attribute_from_config("mean_rgb", None, list)
+        std_rgb = get_attribute_from_config("std_rgb", None, list)
+        use_weight_transform = get_attribute_from_config("use_weights_transform", True)
+        swap_r_and_b = get_attribute_from_config("swap_r_and_b", False)
+        channel_last = get_attribute_from_config("channel_last", False)
+
+        self.preprocessor = Preprocessor(
+            use_weight_transform=use_weight_transform,
+            weights_transform=self.weights.transforms(),
+            input_size=input_size,
+            normalize=(mean_rgb, std_rgb),
+            swap_R_and_B=swap_r_and_b,
+            channel_last=channel_last,
+        )
+
         self.model.eval()
 
         self.labels_confidences = get_attribute_from_config(
@@ -237,9 +250,6 @@ class TorchVisionService(Vision, Reconfigurable):
         im = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
         image = decode_image(im)
         input_tensor = self.preprocessor(image)
-        # input_tensor = image
-        # torchvision.utils.save_image(input_tensor, "./input.jpg")
-        # img = decode_image(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)[0]
         labels = [self.weights.meta["categories"][i] for i in prediction["labels"]]
