@@ -34,20 +34,21 @@ class Preprocessor:
     def __init__(
         self,
         weights_transform=None,
+        use_weight_transform=False,
         channel_last: bool = False,
         swap_R_and_B: bool = False,  # should be use if you have an RGB image and model was trained with OpenCV Dataloader or if you open yoiur image using OpenCV
         normalize: Tuple = None,  # eg. ([mean_r, mean_g, mean_b], [std_r, std_g, std_b]) ALWAYS RGB ORDER # type: ignore
-        input_size: List[NDArray] = None,
+        input_size: List[int] = None,
     ) -> None:
         self.input_size = input_size
         pipeline = [v2.ToImage(), v2.ToDtype(torch.float32, scale=True)]
-        if weights_transform is not None:
+        if weights_transform is not None and use_weight_transform:
             pipeline.append(weights_transform)
 
         if input_size is not None:
             pipeline.append(v2.Resize(size=input_size))
 
-        if normalize is not None:
+        if normalize[0] is not None and normalize[1] is not None:
             pipeline.append(v2.Normalize(mean=normalize[0], std=normalize[1]))
         if swap_R_and_B:
             pipeline.append(SwapRandB())

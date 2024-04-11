@@ -115,7 +115,7 @@ class TorchVisionService(Vision, Reconfigurable):
         input_size = get_attribute_from_config("input_size", None, list)
         mean_rgb = get_attribute_from_config("mean_rgb", None, list)
         std_rgb = get_attribute_from_config("std_rgb", None, list)
-        use_weight_transform = get_attribute_from_config("use_weights_transform", True)
+        use_weight_transform = get_attribute_from_config("use_weight_transform", True)
         swap_r_and_b = get_attribute_from_config("swap_r_and_b", False)
         channel_last = get_attribute_from_config("channel_last", False)
 
