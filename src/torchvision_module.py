@@ -47,25 +47,19 @@ class TorchVisionService(Vision, Reconfigurable):
     # Validates JSON Configuration
     @classmethod
     def validate_config(cls, config: ServiceConfig) -> Sequence[str]:
-        camera_name = config.attributes.fields["camera_name"].string_value
-        if camera_name == "":
-            raise Exception(
-                "A camera name is required for face_identification vision service module."
-            )
-        return [camera_name]
+        return
 
     def reconfigure(
         self, config: ServiceConfig, dependencies: Mapping[ResourceName, ResourceBase]
     ):
+        self.dependencies = dependencies
         device = (
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         )
 
-        self.camera_name = config.attributes.fields["camera_name"].string_value
-        try:
-            self.camera = dependencies[Camera.get_resource_name(self.camera_name)]
-        except:
-            pass
+        # self.camera_name = config.attributes.fields["camera_name"].string_value
+
+        # self.camera = dependencies[Camera.get_resource_name(self.camera_name)]
 
         def get_attribute_from_config(attribute_name: str, default, of_type=None):
             if attribute_name not in config.attributes.fields:
@@ -222,8 +216,7 @@ class TorchVisionService(Vision, Reconfigurable):
         if not self.properties.implements_classification:
             raise NotImplementedError
 
-        im = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
-        image = decode_image(im)
+        image = await self.get_image_from_dependency(camera_name)
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)
@@ -247,8 +240,7 @@ class TorchVisionService(Vision, Reconfigurable):
     ) -> List[Detection]:
         if not self.properties.implements_detection:
             raise NotImplementedError
-        im = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
-        image = decode_image(im)
+        image = await self.get_image_from_dependency(camera_name)
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)[0]
@@ -292,3 +284,8 @@ class TorchVisionService(Vision, Reconfigurable):
                 res.append(detection)
 
         return res
+
+    async def get_image_from_dependency(self, camera_name: str):
+        cam = self.dependencies[Camera.get_resource_name(camera_name)]
+        im = await cam.get_image(mime_type=CameraMimeType.JPEG)
+        return decode_image(im)

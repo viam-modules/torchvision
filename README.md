@@ -46,7 +46,6 @@ Navigate to the **Config** tab of your robot’s page in [the Viam app](https://
     {
       "attributes": {
         "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
-        "camera_name": "cam", 
         "labels_confidences": {"grasshopper": 0.5, 
                                 "cricket": 0.45 },
         "default_minimum_confidence": 0.3
@@ -98,9 +97,8 @@ Navigate to the **Config** tab of your robot’s page in [the Viam app](https://
 The following attributes are available to configure your deepface module:
 
 
-| Name                         | Type                  | Inclusion    | Default     | Description                                                                                                                                                                                                                                                                                                                                        |
-| ---------------------------- | --------------------- | ------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `camera_name`                | string                | **Required** |             | Camera name to be used a source.                                                                                                                                                                                                                                                                                                                   |
+| Name | Type | Inclusion | Default | Description |
+| ---- | ---- | --------- | ------- | ----------- ||
 | `model_name`                 | string                | **Required** |             | Vision model name as expected by the method [get_model()](https://pytorch.org/vision/main/models.html#listing-and-retrieving-available-models) from torchvision multi-weight API.                                                                                                                                                                  |
 | `weights`                    | string                | Optional     | `DEFAULT`   | Weights model name as expected by the method [get_model()](https://pytorch.org/vision/main/models.html#listing-and-retrieving-available-models) from torchvision multi-weight API.                                                                                                                                                                 |
 | `default_minimum_confidence` | float                 | Optional     |             | Default minimum confidence for filtering all labels that are not specified in `label_confidences`.                                                                                                                                                                                                                                                 |
