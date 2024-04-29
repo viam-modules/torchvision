@@ -14,13 +14,13 @@ SUPPORTED_IMAGE_TYPE = [
 
 
 def decode_image(image: Union[Image.Image, RawImage, ViamImage]) -> np.ndarray:
-    """decode image to BGR numpy array
+    """decode image to RGB numpy array
 
     Args:
         raw_image (Union[Image.Image, RawImage])
 
     Returns:
-        np.ndarray: BGR numpy array
+        np.ndarray: RGB numpy array
     """
     if isinstance(image, (RawImage, ViamImage)):
         if image.mime_type not in SUPPORTED_IMAGE_TYPE:

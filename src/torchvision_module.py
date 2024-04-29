@@ -22,12 +22,9 @@ from src.utils import decode_image
 
 import torch
 from torch import Tensor
-import viam
 from torchvision.models import Weights
 
 DETECTION_MODELS: list = list_models(module=torchvision.models.detection)
-
-LOGGER = getLogger(__name__)
 
 
 class TorchVisionService(Vision, Reconfigurable):
@@ -53,13 +50,6 @@ class TorchVisionService(Vision, Reconfigurable):
         self, config: ServiceConfig, dependencies: Mapping[ResourceName, ResourceBase]
     ):
         self.dependencies = dependencies
-        device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        )
-
-        # self.camera_name = config.attributes.fields["camera_name"].string_value
-
-        # self.camera = dependencies[Camera.get_resource_name(self.camera_name)]
 
         def get_attribute_from_config(attribute_name: str, default, of_type=None):
             if attribute_name not in config.attributes.fields:
@@ -107,6 +97,8 @@ class TorchVisionService(Vision, Reconfigurable):
         all_weights = get_model_weights(model_name)
         self.weights: Weights = getattr(all_weights, weights)
         input_size = get_attribute_from_config("input_size", None, list)
+        if input_size is not None:
+            input_size = [int(size) for size in input_size]
         mean_rgb = get_attribute_from_config("mean_rgb", None, list)
         std_rgb = get_attribute_from_config("std_rgb", None, list)
         use_weight_transform = get_attribute_from_config("use_weight_transform", True)
@@ -156,22 +148,7 @@ class TorchVisionService(Vision, Reconfigurable):
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)[0]
-        labels = [self.weights.meta["categories"][i] for i in prediction["labels"]]
-        scores = prediction["scores"]
-        boxes = prediction["boxes"].to(torch.int64).tolist()
-        res = [
-            Detection(
-                x_min=x_min,
-                y_min=y_min,
-                x_max=x_max,
-                y_max=y_max,
-                confidence=score,
-                class_name=label,
-            )
-            for (x_min, y_min, x_max, y_max), score, label in zip(boxes, scores, labels)
-        ]
-        res = self.filter_output(res)
-        return res
+        return self.wrap_detections(prediction)
 
     async def get_classifications(
         self,
@@ -185,25 +162,9 @@ class TorchVisionService(Vision, Reconfigurable):
             return NotImplementedError
 
         input_tensor = self.preprocessor(image)
-        # input_tensor = image
-        # torchvision.utils.save_image(input_tensor, "./input.jpg")
-        # img = decode_image(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)
-
-        prediction = prediction.squeeze(0)
-        prediction = prediction.softmax(0)
-        scores, top_indices = torch.topk(prediction, k=count)
-
-        category_names = [
-            self.weights.meta["categories"][index] for index in top_indices
-        ]
-        res = [
-            Classification(class_name=name, confidence=score)
-            for name, score in zip(category_names, scores)
-        ]
-        res = self.filter_output(res)
-        return res
+        return self.wrap_classifications(prediction, count)
 
     async def get_classifications_from_camera(
         self,
@@ -220,20 +181,7 @@ class TorchVisionService(Vision, Reconfigurable):
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)
-
-        prediction = prediction.squeeze(0)
-        prediction = prediction.softmax(0)
-        scores, top_indices = torch.topk(prediction, k=count)
-
-        category_names = [
-            self.weights.meta["categories"][index] for index in top_indices
-        ]
-        res = [
-            Classification(class_name=name, confidence=score)
-            for name, score in zip(category_names, scores)
-        ]
-        res = self.filter_output(res)
-        return res
+        return self.wrap_classifications(prediction, count)
 
     async def get_detections_from_camera(
         self, camera_name: str, *, extra: Mapping[str, Any], timeout: float
@@ -244,22 +192,7 @@ class TorchVisionService(Vision, Reconfigurable):
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)[0]
-        labels = [self.weights.meta["categories"][i] for i in prediction["labels"]]
-        scores = prediction["scores"]
-        boxes = prediction["boxes"].to(torch.int64).tolist()
-        res = [
-            Detection(
-                x_min=x_min,
-                y_min=y_min,
-                x_max=x_max,
-                y_max=y_max,
-                confidence=score,
-                class_name=label,
-            )
-            for (x_min, y_min, x_max, y_max), score, label in zip(boxes, scores, labels)
-        ]
-        res = self.filter_output(res)
-        return res
+        return self.wrap_detections(prediction)
 
     async def do_command(
         self,
@@ -289,3 +222,52 @@ class TorchVisionService(Vision, Reconfigurable):
         cam = self.dependencies[Camera.get_resource_name(camera_name)]
         im = await cam.get_image(mime_type=CameraMimeType.JPEG)
         return decode_image(im)
+
+    def wrap_detections(self, prediction: dict):
+        """_summary_
+        converts prediction output tensor from torchvision model
+        for viam API
+        Args:
+            prediction (dict): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        labels = [self.weights.meta["categories"][i] for i in prediction["labels"]]
+        scores = prediction["scores"]
+        boxes = prediction["boxes"].to(torch.int64).tolist()
+        res = [
+            Detection(
+                x_min=x_min,
+                y_min=y_min,
+                x_max=x_max,
+                y_max=y_max,
+                confidence=score,
+                class_name=label,
+            )
+            for (x_min, y_min, x_max, y_max), score, label in zip(boxes, scores, labels)
+        ]
+        res = self.filter_output(res)
+        return res
+
+    def wrap_classifications(self, prediction, count):
+        """_summary_
+        onverts prediction output tensor from torchvision model
+        for viam API
+        Args:
+            prediction (Tensor):
+            count (int):
+        """
+        prediction = prediction.squeeze(0)
+        prediction = prediction.softmax(0)
+        scores, top_indices = torch.topk(prediction, k=count)
+
+        category_names = [
+            self.weights.meta["categories"][index] for index in top_indices
+        ]
+        res = [
+            Classification(class_name=name, confidence=score)
+            for name, score in zip(category_names, scores)
+        ]
+        res = self.filter_output(res)
+        return res
