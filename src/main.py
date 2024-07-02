@@ -1,3 +1,5 @@
+"""Main entrypoint file to run module"""
+
 import asyncio
 
 from viam.services.vision import Vision

@@ -1,8 +1,10 @@
+"""Module that defines the Vision Service that wraps torchvision functionality"""
+
 from typing import ClassVar, List, Mapping, Sequence, Any, Dict, Optional, Union
-from viam.media.video import CameraMimeType
 from typing_extensions import Self
 from viam.components.camera import Camera
 from viam.media.video import RawImage
+from viam.media.video import CameraMimeType
 from viam.proto.service.vision import Classification, Detection
 from viam.services.vision import Vision
 from viam.module.types import Reconfigurable
@@ -11,23 +13,22 @@ from viam.proto.app.robot import ServiceConfig
 from viam.proto.common import PointCloudObject, ResourceName
 from viam.resource.base import ResourceBase
 from viam.utils import ValueTypes
-from viam.logging import getLogger
-from PIL import Image
 
+from PIL import Image
+import torch
+from torch import Tensor
 import torchvision
 from torchvision.models import get_model, get_model_weights, list_models
+from torchvision.models import Weights
 from src.preprocess import Preprocessor
 from src.properties import Properties
 from src.utils import decode_image
-
-import torch
-from torch import Tensor
-from torchvision.models import Weights
 
 DETECTION_MODELS: list = list_models(module=torchvision.models.detection)
 
 
 class TorchVisionService(Vision, Reconfigurable):
+    """Torchvision Service class definition"""
     MODEL: ClassVar[Model] = Model(ModelFamily("viam", "vision"), "torchvision")
 
     def __init__(self, name: str):
@@ -37,20 +38,23 @@ class TorchVisionService(Vision, Reconfigurable):
     def new_service(
         cls, config: ServiceConfig, dependencies: Mapping[ResourceName, ResourceBase]
     ) -> Self:
+        """create and configure new instance"""
         service = cls(config.name)
         service.reconfigure(config, dependencies)
         return service
 
-    # Validates JSON Configuration
     @classmethod
     def validate_config(cls, config: ServiceConfig) -> Sequence[str]:
+        """Validates JSON Configuration"""
         return
 
     def reconfigure(
         self, config: ServiceConfig, dependencies: Mapping[ResourceName, ResourceBase]
     ):
+        """Handles attribute reconfiguration"""
         self.dependencies = dependencies
 
+        # pylint: disable=too-many-return-statements, inconsistent-return-statements
         def get_attribute_from_config(attribute_name: str, default, of_type=None):
             if attribute_name not in config.attributes.fields:
                 return default
@@ -66,15 +70,15 @@ class TorchVisionService(Vision, Reconfigurable):
 
             if type_default == bool:
                 return config.attributes.fields[attribute_name].bool_value
-            elif type_default == int:
+            if type_default == int:
                 return int(config.attributes.fields[attribute_name].number_value)
-            elif type_default == float:
+            if type_default == float:
                 return config.attributes.fields[attribute_name].number_value
-            elif type_default == str:
+            if type_default == str:
                 return config.attributes.fields[attribute_name].string_value
-            elif type_default == list:
+            if type_default == list:
                 return list(config.attributes.fields[attribute_name].list_value)
-            elif type_default == dict:
+            if type_default == dict:
                 return dict(config.attributes.fields[attribute_name].struct_value)
 
         model_name = get_attribute_from_config("model_name", None, str)
@@ -90,10 +94,10 @@ class TorchVisionService(Vision, Reconfigurable):
         weights = get_attribute_from_config("weights", "DEFAULT")
         try:
             self.model = get_model(model_name, weights=weights)
-        except KeyError:
+        except KeyError as e:
             raise KeyError(
                 f"weights: {weights} are not availble for model: {model_name}"
-            )
+            ) from e
         all_weights = get_model_weights(model_name)
         self.weights: Weights = getattr(all_weights, weights)
         input_size = get_attribute_from_config("input_size", None, list)
@@ -110,19 +114,20 @@ class TorchVisionService(Vision, Reconfigurable):
             weights_transform=self.weights.transforms(),
             input_size=input_size,
             normalize=(mean_rgb, std_rgb),
-            swap_R_and_B=swap_r_and_b,
+            swap_r_and_b=swap_r_and_b,
             channel_last=channel_last,
         )
 
         self.model.eval()
 
         self.labels_confidences = get_attribute_from_config(
-            "labels_confidences", dict()
+            "labels_confidences", {}
         )
         self.default_minimum_confidence = get_attribute_from_config(
             "default_minimum_confidence", 0
         )
 
+    # pylint: disable=missing-function-docstring
     async def get_object_point_clouds(
         self,
         camera_name: str,
@@ -133,8 +138,7 @@ class TorchVisionService(Vision, Reconfigurable):
     ) -> List[PointCloudObject]:
         if not self.properties.implements_get_object_pcd:
             raise NotImplementedError
-        else:
-            return 1
+        return 1
 
     async def get_detections(
         self,
@@ -143,6 +147,7 @@ class TorchVisionService(Vision, Reconfigurable):
         extra: Mapping[str, Any],
         timeout: float,
     ) -> List[Detection]:
+        """Get detections from an image"""
         if not self.properties.implements_detection:
             raise NotImplementedError
         input_tensor = self.preprocessor(image)
@@ -158,6 +163,7 @@ class TorchVisionService(Vision, Reconfigurable):
         extra: Optional[Mapping[str, Any]] = None,
         timeout: Optional[float] = None,
     ) -> List[Classification]:
+        """Get classifications from image"""
         if not self.properties.implements_classification:
             return NotImplementedError
 
@@ -174,6 +180,7 @@ class TorchVisionService(Vision, Reconfigurable):
         extra: Optional[Mapping[str, Any]] = None,
         timeout: Optional[float] = None,
     ) -> List[Classification]:
+        """Gets classifications from a camera dependency"""
         if not self.properties.implements_classification:
             raise NotImplementedError
 
@@ -186,6 +193,7 @@ class TorchVisionService(Vision, Reconfigurable):
     async def get_detections_from_camera(
         self, camera_name: str, *, extra: Mapping[str, Any], timeout: float
     ) -> List[Detection]:
+        """Gets detections from a camera dependency"""
         if not self.properties.implements_detection:
             raise NotImplementedError
         image = await self.get_image_from_dependency(camera_name)
@@ -194,6 +202,7 @@ class TorchVisionService(Vision, Reconfigurable):
             prediction: Tensor = self.model(input_tensor)[0]
         return self.wrap_detections(prediction)
 
+    # pylint: disable=missing-function-docstring
     async def do_command(
         self,
         command: Mapping[str, ValueTypes],

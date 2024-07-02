@@ -1,8 +1,10 @@
+"""Utility file including methods for image decoding"""
+
 from typing import Union
-from viam.media.video import ViamImage, RawImage
 from PIL import Image
 from viam.logging import getLogger
 from viam.media.video import CameraMimeType
+from viam.media.video import ViamImage, RawImage
 import numpy as np
 
 LOGGER = getLogger(__name__)

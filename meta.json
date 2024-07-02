@@ -1,0 +1,18 @@
+{
+    "module_id": "viam:torchvision",
+    "visibility": "public",
+    "url": "https://github.com/viam-labs/torchvision",
+    "description": "This vision service provides a wrapper around torchvision functionality.",
+    "models": [
+      {
+        "api": "rdk:service:vision",
+        "model": "viam:vision:torchvision"
+      }
+    ],
+    "build": {
+        "build": "./build.sh", 
+        "path": "dist/archive.tar.gz", 
+        "arch": ["linux/amd64", "linux/arm64"] 
+      },
+    "entrypoint": "dist/__main__" 
+  }
