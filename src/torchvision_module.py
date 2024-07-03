@@ -5,7 +5,7 @@ from typing_extensions import Self
 from viam.components.camera import Camera
 from viam.media.video import ViamImage, CameraMimeType
 from viam.proto.service.vision import Classification, Detection
-from viam.services.vision import Vision
+from viam.services.vision import Vision, CaptureAllResult
 from viam.module.types import Reconfigurable
 from viam.resource.types import Model, ModelFamily
 from viam.proto.app.robot import ServiceConfig
@@ -124,6 +124,67 @@ class TorchVisionService(Vision, Reconfigurable):
         self.default_minimum_confidence = get_attribute_from_config(
             "default_minimum_confidence", 0
         )
+    #pylint: disable=too-many-arguments
+    async def capture_all_from_camera(
+        self,
+        camera_name: str,
+        return_image: bool = False,
+        return_classifications: bool = False,
+        return_detections: bool = False,
+        return_object_point_clouds: bool = False,
+        *,
+        extra: Optional[Mapping[str, Any]] = None,
+        timeout: Optional[float] = None,
+    ) -> CaptureAllResult:
+        """Get the next image, detections, classifications, and objects all together,
+        given a camera name. Used for visualization.
+
+        ::
+
+            camera_name = "cam1"
+
+            # Grab the detector you configured on your machine
+            my_detector = VisionClient.from_robot(robot, "my_detector")
+
+            # capture all from the next image from the camera
+            result = await my_detector.capture_all_from_camera(
+                camera_name,
+                return_image=True,
+                return_detections=True,
+            )
+
+        Args:
+            camera_name (str): The name of the camera to use for detection
+            return_image (bool): 
+                Ask the vision service to return the camera's latest image
+            return_classifications (bool): 
+                Ask the vision service to return its latest classifications
+            return_detections (bool): 
+                Ask the vision service to return its latest detections
+            return_object_point_clouds (bool): 
+                Ask the vision service to return its latest 3D segmentations
+
+        Returns:
+            vision.CaptureAllResult: 
+                A class that stores all potential returns from the vision service.
+            It can  return the image from the camera along with its associated detections, 
+            classifications, and objects, as well as any extra info the model may provide.
+        """
+        result = CaptureAllResult()
+        image = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
+
+        if return_image:
+            result.image = image
+        if return_classifications:
+            classifications = await self.get_classifications(image, 1)
+            result.classifications = classifications
+        if return_detections:
+            detections = await self.get_detections(image, timeout=timeout)
+            result.detections = detections
+        if return_object_point_clouds:
+            return NotImplementedError
+
+        return result
 
     # pylint: disable=missing-function-docstring
     async def get_object_point_clouds(
