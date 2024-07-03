@@ -4,7 +4,7 @@ from typing import Union
 from PIL import Image
 from viam.logging import getLogger
 from viam.media.video import CameraMimeType
-from viam.media.video import ViamImage, RawImage
+from viam.media.video import ViamImage
 import numpy as np
 
 LOGGER = getLogger(__name__)
@@ -15,16 +15,16 @@ SUPPORTED_IMAGE_TYPE = [
 ]
 
 
-def decode_image(image: Union[Image.Image, RawImage, ViamImage]) -> np.ndarray:
+def decode_image(image: Union[Image.Image, ViamImage]) -> np.ndarray:
     """decode image to RGB numpy array
 
     Args:
-        raw_image (Union[Image.Image, RawImage])
+        raw_image (Union[Image.Image])
 
     Returns:
         np.ndarray: RGB numpy array
     """
-    if isinstance(image, (RawImage, ViamImage)):
+    if isinstance(image, (ViamImage)):
         if image.mime_type not in SUPPORTED_IMAGE_TYPE:
             LOGGER.error(
                 f"Unsupported image type: {image.mime_type}. Supported types are {SUPPORTED_IMAGE_TYPE}."
@@ -38,3 +38,4 @@ def decode_image(image: Union[Image.Image, RawImage, ViamImage]) -> np.ndarray:
     res = image.convert("RGB")
     rgb = np.array(res)
     return rgb
+

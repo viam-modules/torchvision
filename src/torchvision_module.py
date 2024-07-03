@@ -3,8 +3,7 @@
 from typing import ClassVar, List, Mapping, Sequence, Any, Dict, Optional, Union
 from typing_extensions import Self
 from viam.components.camera import Camera
-from viam.media.video import RawImage
-from viam.media.video import CameraMimeType
+from viam.media.video import ViamImage, CameraMimeType
 from viam.proto.service.vision import Classification, Detection
 from viam.services.vision import Vision
 from viam.module.types import Reconfigurable
@@ -25,7 +24,6 @@ from src.properties import Properties
 from src.utils import decode_image
 
 DETECTION_MODELS: list = list_models(module=torchvision.models.detection)
-
 
 class TorchVisionService(Vision, Reconfigurable):
     """Torchvision Service class definition"""
@@ -142,7 +140,7 @@ class TorchVisionService(Vision, Reconfigurable):
 
     async def get_detections(
         self,
-        image: Union[Image.Image, RawImage],
+        image: Union[Image.Image, ViamImage],
         *,
         extra: Mapping[str, Any],
         timeout: float,
@@ -157,7 +155,7 @@ class TorchVisionService(Vision, Reconfigurable):
 
     async def get_classifications(
         self,
-        image: Union[Image.Image, RawImage],
+        image: Union[Image.Image, ViamImage],
         count: int,
         *,
         extra: Optional[Mapping[str, Any]] = None,
@@ -201,6 +199,30 @@ class TorchVisionService(Vision, Reconfigurable):
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)[0]
         return self.wrap_detections(prediction)
+
+    async def get_properties(
+        self,
+        *,
+        extra: Optional[Mapping[str, Any]] = None,
+        timeout: Optional[float] = None,
+    ) -> Properties:
+        """
+        Get info about what vision methods the vision service provides. 
+        Currently returns boolean values that
+        state whether the service implements the classification, detection, 
+        and/or 3D object segmentation methods.
+
+        ::
+                # Grab the detector you configured on your machine
+                my_detector = VisionClient.from_robot(robot, "my_detector")
+                properties = await my_detector.get_properties()
+                properties.detections_supported      # returns True
+                properties.classifications_supported # returns False
+
+        Returns:
+            Properties: The properties of the vision service
+        """
+        return self.properties
 
     # pylint: disable=missing-function-docstring
     async def do_command(
@@ -280,3 +302,4 @@ class TorchVisionService(Vision, Reconfigurable):
         ]
         res = self.filter_output(res)
         return res
+
