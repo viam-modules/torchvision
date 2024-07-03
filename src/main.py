@@ -5,7 +5,7 @@ import asyncio
 from viam.services.vision import Vision
 from viam.module.module import Module
 from viam.resource.registry import Registry, ResourceCreatorRegistration
-from .torchvision_module import TorchVisionService
+from src.torchvision_module import TorchVisionService
 
 
 async def main():
