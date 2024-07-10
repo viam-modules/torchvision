@@ -25,12 +25,13 @@ from src.utils import decode_image
 
 DETECTION_MODELS: list = list_models(module=torchvision.models.detection)
 
-class TorchVisionService(Vision, Reconfigurable):
-    """Torchvision Service class definition"""
+class TorchVisionMock(Vision, Reconfigurable):
+    """Torchvision Mock Service class definition"""
     MODEL: ClassVar[Model] = Model(ModelFamily("viam", "vision"), "torchvision")
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, image):
         super().__init__(name=name)
+        self.image = image
 
     @classmethod
     def new_service(
@@ -177,8 +178,7 @@ class TorchVisionService(Vision, Reconfigurable):
             classifications, and objects, as well as any extra info the model may provide.
         """
         result = CaptureAllResult()
-        image = await self.get_image_from_dependency(camera_name)
-
+        image = self.image
         if return_image:
             result.image = image
         if return_classifications:
