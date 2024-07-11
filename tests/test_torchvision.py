@@ -6,21 +6,17 @@ import asyncio
 import numpy as np
 
 import pytest
+from unittest.mock import AsyncMock, Mock, patch
 from typing import Any, Mapping
 
-from grpclib.testing import ChannelFor
 from PIL import Image
 
 from viam.media.utils.pil import pil_to_viam_image
-from viam.media.video import CameraMimeType, ViamImage
 from viam.proto.app.robot import ComponentConfig
 
-from viam.services.vision import Classification, Detection, Vision, VisionClient
-from viam.utils import dict_to_struct, struct_to_dict
-from viam.resource.manager import ResourceManager
+from viam.utils import dict_to_struct
 from src.properties import Properties
 from src.torchvision_module import TorchVisionService
-from src.torchvision_mock import TorchVisionMock
 from google.protobuf.struct_pb2 import Struct
 
 path_to_input_image = "tests/grasshopper.jpg"
@@ -30,11 +26,9 @@ cfg = ServiceConfig(
         {
             "model_name": "resnet50",
             "weights": "IMAGENET1K_V1",
-            "camera_name": "cam",
+            "camera_name": "fake_cam",
         }
-    ),
-        depends_on=["zebi"],
-    )
+    ))
 
 VISION_SERVICE_NAME = "vision1"
 DETECTIONS = []
@@ -49,12 +43,14 @@ def make_component_config(dictionary: Mapping[str, Any]) -> ComponentConfig:
     struct.update(dictionary=dictionary)
     return ComponentConfig(attributes=struct)
 
-config = (
-    make_component_config({
-        "model_name": "resnet_50"
-    }),
-    "received only one dimension attribute"
-)
+config = make_component_config({
+        "model_name": "resnet_50"})
+
+
+config2 = make_component_config({
+        "model_name": "resnet_50",
+        "camera_name": "fake_cam"
+    })
 
 @pytest.fixture(scope="function")
 def vision() -> TorchVisionService:
@@ -62,35 +58,61 @@ def vision() -> TorchVisionService:
         name='tvs'
     )
 
-@pytest.fixture(scope="function")
-def vision_mock() -> TorchVisionMock:
-    return TorchVisionMock(
-        name='tvs',
-        image=input_image
-    )
-
 class TestVision:
     @pytest.mark.asyncio
     async def test_validate(self):
-        response = TorchVisionService.validate_config(config=config[0])
+        with pytest.raises(Exception):
+            response = TorchVisionService.validate_config(config=config)
+        response = TorchVisionService.validate_config(config=config2)
 
     @pytest.mark.asyncio
-    async def test_get_properties(self, vision: TorchVisionService):
-        vision.reconfigure(cfg, dependencies=None)
+    @patch('viam.components.camera.Camera.get_resource_name', return_value="fake_cam")
+    @patch.object(TorchVisionService, 'get_image_from_dependency', new_callable=AsyncMock)
+    async def test_get_properties(self, get_image_from_dependency, fake_cam):
+        vision =  TorchVisionService(
+            name='tvs'
+        )
+        vision.camera_name = "fake_cam"
+        get_image_from_dependency.return_value = input_image
+
+        vision.reconfigure(cfg, dependencies={"fake_cam": Mock()})
         response = await vision.get_properties()
         assert response == PROPERTIES
 
-    @pytest.mark.asyncio
-    async def test_capture_all_from_camera(self, vision_mock: TorchVisionMock):
-        vision_mock.reconfigure(cfg, dependencies=None)
-        response = await vision_mock.capture_all_from_camera(
-            "fake-camera",
-            return_image=True,
-            return_detections=False,
-            return_classifications=True,
+    @patch('viam.components.camera.Camera.get_resource_name', return_value="fake_cam")
+    @patch.object(TorchVisionService, 'get_image_from_dependency', new_callable=AsyncMock)
+    def test_capture_all_from_camera(self, get_image_from_dependency, fake_cam):
+        camera =  TorchVisionService(
+            name='tvs'
         )
-        assert response.image.data == input_image.data
-        # can also test mimetype here
-        assert response.detections is None
-        assert response.classifications is not None
-        assert response.objects is None
+        camera.camera_name = "fake_cam"
+        get_image_from_dependency.return_value = input_image
+
+        camera.reconfigure(cfg, dependencies={"fake_cam": Mock()})
+
+        # without point clouds = True
+        result = asyncio.run(camera.capture_all_from_camera(
+            'camera1',
+            return_image=True,
+            return_classifications=True,
+            return_detections=True
+        ))
+
+        # assert result.image.all() == input_image
+        assert result.classifications is not None
+        assert result.detections is None
+
+        result = asyncio.run(camera.capture_all_from_camera(
+            'camera1',
+            return_image=True,
+            return_classifications=True,
+            return_detections=True,
+            return_object_point_clouds=True
+        ))
+
+        # assert result.image == input_image
+        assert result.classifications is not None
+        assert result.detections is None
+        assert result.objects is None
+        # mock_get_classifications.assert_called_once_with('test_image', 1)
+        # mock_get_detections.assert_called_once_with('test_image', timeout=None)

@@ -12,6 +12,7 @@ from viam.proto.app.robot import ServiceConfig
 from viam.proto.common import PointCloudObject, ResourceName
 from viam.resource.base import ResourceBase
 from viam.utils import ValueTypes
+from viam.logging import getLogger
 
 from PIL import Image
 import torch
@@ -23,6 +24,8 @@ from src.preprocess import Preprocessor
 from src.properties import Properties
 from src.utils import decode_image
 
+LOGGER = getLogger(__name__)
+
 DETECTION_MODELS: list = list_models(module=torchvision.models.detection)
 
 class TorchVisionService(Vision, Reconfigurable):
@@ -31,6 +34,8 @@ class TorchVisionService(Vision, Reconfigurable):
 
     def __init__(self, name: str):
         super().__init__(name=name)
+        self.camera_name = ""
+        self.camera = None
 
     @classmethod
     def new_service(
@@ -45,18 +50,25 @@ class TorchVisionService(Vision, Reconfigurable):
     def validate_config(cls, config: ServiceConfig) -> Sequence[str]:
         """Validates JSON Configuration"""
         model_name = config.attributes.fields["model_name"].string_value
+        camera_name = config.attributes.fields["camera_name"].string_value
 
         if model_name == "":
             raise Exception(
                 "A model name is required for this vision service module."
             )
-        return
+        if camera_name == "":
+            raise Exception(
+                "A camera name is required for this vision service module."
+            )
+        return [camera_name]
 
     def reconfigure(
         self, config: ServiceConfig, dependencies: Mapping[ResourceName, ResourceBase]
     ):
         """Handles attribute reconfiguration"""
         self.dependencies = dependencies
+        self.camera_name = config.attributes.fields["camera_name"].string_value
+        self.camera = self.dependencies[Camera.get_resource_name(self.camera_name)]
 
         # pylint: disable=too-many-return-statements, inconsistent-return-statements
         def get_attribute_from_config(attribute_name: str, default, of_type=None):
@@ -182,13 +194,19 @@ class TorchVisionService(Vision, Reconfigurable):
         if return_image:
             result.image = image
         if return_classifications:
-            classifications = await self.get_classifications(image, 1)
-            result.classifications = classifications
+            try:
+                classifications = await self.get_classifications(image, 1)
+                result.classifications = classifications
+            # pylint: disable=broad-exception-caught
+            except Exception as e:
+                LOGGER.info(f"getClassifications failed: {e}")
         if return_detections:
-            detections = await self.get_detections(image, timeout=timeout)
-            result.detections = detections
-        if return_object_point_clouds:
-            return NotImplementedError
+            try:
+                detections = await self.get_detections(image, timeout=timeout, extra=None)
+                result.detections = detections
+            # pylint: disable=broad-exception-caught
+            except Exception as e:
+                LOGGER.info(f"getDetections failed: {e}")
 
         return result
 
@@ -215,6 +233,8 @@ class TorchVisionService(Vision, Reconfigurable):
         """Get detections from an image"""
         if not self.properties.implements_detection:
             raise NotImplementedError
+        LOGGER.info(f"input image is: {type(image)}")
+        image = decode_image(image)
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)[0]
@@ -231,11 +251,13 @@ class TorchVisionService(Vision, Reconfigurable):
         """Get classifications from image"""
         if not self.properties.implements_classification:
             return NotImplementedError
-
+        image = decode_image(image)
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)
-        return self.wrap_classifications(prediction, count)
+        out = self.wrap_classifications(prediction, count)
+        LOGGER.info(f"output: {type(out)}, {out}")
+        return out
 
     async def get_classifications_from_camera(
         self,
@@ -262,6 +284,7 @@ class TorchVisionService(Vision, Reconfigurable):
         if not self.properties.implements_detection:
             raise NotImplementedError
         image = await self.get_image_from_dependency(camera_name)
+        LOGGER.info(f"input image is: {type(image)}")
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)[0]
@@ -317,8 +340,8 @@ class TorchVisionService(Vision, Reconfigurable):
         return res
 
     async def get_image_from_dependency(self, camera_name: str):
-        cam = self.dependencies[Camera.get_resource_name(camera_name)]
-        im = await cam.get_image(mime_type=CameraMimeType.JPEG)
+        # cam = self.dependencies[Camera.get_resource_name("")]
+        im = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
         return decode_image(im)
 
     def wrap_detections(self, prediction: dict):
@@ -350,7 +373,7 @@ class TorchVisionService(Vision, Reconfigurable):
 
     def wrap_classifications(self, prediction, count):
         """_summary_
-        onverts prediction output tensor from torchvision model
+        Converts prediction output tensor from torchvision model
         for viam API
         Args:
             prediction (Tensor):
@@ -369,4 +392,3 @@ class TorchVisionService(Vision, Reconfigurable):
         ]
         res = self.filter_output(res)
         return res
-

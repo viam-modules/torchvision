@@ -53,7 +53,7 @@ class Preprocessor:
         if input_size is not None:
             pipeline.append(v2.Resize(size=input_size))
 
-        if normalize[0] is not None and normalize[1] is not None:
+        if normalize and normalize[0] is not None and normalize[1] is not None:
             pipeline.append(v2.Normalize(mean=normalize[0], std=normalize[1]))
         if swap_r_and_b:
             pipeline.append(SwapRandB())
