@@ -1,12 +1,14 @@
+"""Preprocessing utility Classes on input tensors"""
+
 from typing import Any, List, Tuple
-from torchvision.transforms import v2
 import numpy as np
-from numpy.typing import NDArray
-import torchvision.transforms.v2.functional as F
 import torch
+from torchvision.transforms import v2
+import torchvision.transforms.v2.functional as F
 
 
 class SwapRandB:
+    """Swaps Red and Blue channels to transform a rgb image to bgr format"""
     def __call__(self, rgb):
         if rgb.ndim == 3:
             bgr = F.permute_channels(rgb, permutation=[2, 1, 0])
@@ -19,6 +21,7 @@ class SwapRandB:
 
 
 class ToChannelsLast:
+    """Converting image to channel-last format"""
     def __call__(self, x):
         if x.ndim == 3:
             x = x.unsqueeze(0)
@@ -29,14 +32,16 @@ class ToChannelsLast:
     def __repr__(self):
         return self.__class__.__name__ + "()"
 
-
+# pylint: disable=too-few-public-methods
 class Preprocessor:
+    """Main wrapper class that performs a series of preprocessing steps"""
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         weights_transform=None,
         use_weight_transform=False,
         channel_last: bool = False,
-        swap_R_and_B: bool = False,  # should be use if you have an RGB image and model was trained with OpenCV Dataloader or if you open yoiur image using OpenCV
+        swap_r_and_b: bool = False, # should be use if you have an RGB image and model was trained with OpenCV Dataloader or if you open yoiur image using OpenCV
         normalize: Tuple = None,  # eg. ([mean_r, mean_g, mean_b], [std_r, std_g, std_b]) ALWAYS RGB ORDER # type: ignore
         input_size: List[int] = None,
     ) -> None:
@@ -48,9 +53,9 @@ class Preprocessor:
         if input_size is not None:
             pipeline.append(v2.Resize(size=input_size))
 
-        if normalize[0] is not None and normalize[1] is not None:
+        if normalize and normalize[0] is not None and normalize[1] is not None:
             pipeline.append(v2.Normalize(mean=normalize[0], std=normalize[1]))
-        if swap_R_and_B:
+        if swap_r_and_b:
             pipeline.append(SwapRandB())
         if channel_last:
             pipeline.append(ToChannelsLast())
