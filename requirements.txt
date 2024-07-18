@@ -5,3 +5,6 @@ google-api-python-client
 torch
 torchvision==0.17.2
 protobuf==4.25.3
+pytest
+pylint
+pytest-asyncio
