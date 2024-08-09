@@ -2,8 +2,14 @@ viam-sdk>0.24.0
 numpy<2.0.0
 pyinstaller
 google-api-python-client
-torch
-torchvision==0.17.2
+torch; sys_platform == 'darwin'
+torch==2.2.2+cpu; sys_platform  == 'linux'
+-f https://download.pytorch.org/whl/cpu/torch_stable.html
+
+torchvision == 0.18; sys_platform  == 'darwin'
+torchvision==0.17.2+cpu;sys_platform  == 'linux'
+-f https://download.pytorch.org/whl/cpu/torch_stable.html
+
 protobuf==4.25.3
 pytest
 pylint
