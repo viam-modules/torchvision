@@ -8,6 +8,7 @@ This is a [Viam module](https://docs.viam.com/extend/modular-resources/) providi
 
 
  For a given model architecture (e.g. *ResNet50*), multiple weights can be available and each of those weights comes with Metadata (preprocessing and labels). 
+
 ## Getting started
 
 To use this module, follow these instructions to [add a module from the Viam Registry](https://docs.viam.com/modular-resources/configure/#add-a-module-from-the-viam-registry) and select the `viam:vision:torchvision` model from the [`torchvision` module](https://app.viam.com/module/viam/torchvision).
@@ -27,16 +28,18 @@ Depending on the type of models configured, the module implements:
 ## Configure your `torchvision` vision service
 
 > [!NOTE]  
-> Before configuring your vision service, you must [create a robot](https://docs.viam.com/manage/fleet/robots/#add-a-new-robot).
+> Before configuring your vision service, you must [create a machine](https://docs.viam.com/how-tos/configure/).
 
-Navigate to the **Config** tab of your robot’s page in [the Viam app](https://app.viam.com/). Click on the **Services** subtab and click **Create service**. Select the `Vision` type, then select the `torchvision` model. Enter a name for your service and click **Create**.
+Navigate to the [**CONFIGURE** tab](https://docs.viam.com/configure/) of your [machine](https://docs.viam.com/fleet/machines/) in the [Viam app](https://app.viam.com/).
+[Add vision / torchvision to your machine](https://docs.viam.com/configure/#components).
 
-### Example of config with a camera and transform camera
-The following json config file includes the following ressources:
-- TorchvVision module
-- modular ressource (Torchvision vision service)
--  a camera
-- a transform camera 
+### Example configuration with a camera and transform camera
+
+The following JSON config file includes the following resources:
+- TorchVision module
+- modular resource (TorchVision vision service)
+- a webcam [camera](https://docs.viam.com/components/camera/)
+- a [transform camera](https://docs.viam.com/components/camera/transform/)
 
 ```json
 {
@@ -126,10 +129,10 @@ The only **required attribute** to configure your torchvision vision service is 
    - If `input_size` is provided, the image is resized using `v2.Resize()` to the specified size.
    - If both mean and standard deviation values are provided in `normalize`, the image is normalized using `v2.Normalize()` with the specified mean and standard deviation values.
    - If `swap_R_and_B` is set to `True`, first and last channel are swapped. 
-   - If `channel_last` is `True`, a transformation is applied to conv.ert the channel order to the last dimension format. (C, H ,W) -> (H, W, X).
+   - If `channel_last` is `True`, a transformation is applied to convert the channel order to the last dimension format. (C, H ,W) -> (H, W, X).
 
 
 
-### RESSOURCES
+### RESOURCES
 - [Table of all available classification weights](https://pytorch.org/vision/main/models.html#table-of-all-available-classification-weights)
 - [Quantized models](https://pytorch.org/vision/main/models.html#quantized-models)
