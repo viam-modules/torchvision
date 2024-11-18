@@ -38,7 +38,7 @@ Navigate to the [**CONFIGURE** tab](https://docs.viam.com/configure/) of your [m
 The following JSON config file includes the following resources:
 - TorchVision module
 - modular resource (TorchVision vision service)
-- a webcam [camera](https://docs.viam.com/components/camera/)
+- a [webcam camera](https://docs.viam.com/components/camera/webcam/)
 - a [transform camera](https://docs.viam.com/components/camera/transform/)
 
 ```json
