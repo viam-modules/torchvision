@@ -189,6 +189,14 @@ class TorchVisionService(Vision, Reconfigurable):
             classifications, and objects, as well as any extra info the model may provide.
         """
         result = CaptureAllResult()
+
+        if camera_name not in (self.camera_name, ""):
+            raise ValueError(
+                "Camera name passed to method:",
+                camera_name,
+                "is not the configured 'camera_name'",
+                self.camera_name,
+            )
         image = await self.get_image_from_dependency(camera_name)
 
         if return_image:
@@ -271,6 +279,13 @@ class TorchVisionService(Vision, Reconfigurable):
         if not self.properties.implements_classification:
             raise NotImplementedError
 
+        if camera_name not in (self.camera_name, ""):
+            raise ValueError(
+                "Camera name passed to method:",
+                camera_name,
+                "is not the configured 'camera_name'",
+                self.camera_name,
+            )
         image = await self.get_image_from_dependency(camera_name)
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
@@ -278,11 +293,18 @@ class TorchVisionService(Vision, Reconfigurable):
         return self.wrap_classifications(prediction, count)
 
     async def get_detections_from_camera(
-        self, camera_name: str, *, extra: Mapping[str, Any], timeout: float
+        self, camera_name: str, *, extra: Mapping[str, Any] = None, timeout: float = None,
     ) -> List[Detection]:
         """Gets detections from a camera dependency"""
         if not self.properties.implements_detection:
             raise NotImplementedError
+        if camera_name not in (self.camera_name, ""):
+            raise ValueError(
+                "Camera name passed to method:",
+                camera_name,
+                "is not the configured 'camera_name'",
+                self.camera_name,
+            )
         image = await self.get_image_from_dependency(camera_name)
         LOGGER.info(f"input image is: {type(image)}")
         input_tensor = self.preprocessor(image)
