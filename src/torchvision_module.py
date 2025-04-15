@@ -142,7 +142,7 @@ class TorchVisionService(Vision, Reconfigurable):
         self.default_minimum_confidence = get_attribute_from_config(
             "default_minimum_confidence", 0
         )
-    #pylint: disable=too-many-arguments
+    #pylint: disable=too-many-arguments,too-many-positional-arguments
     async def capture_all_from_camera(
         self,
         camera_name: str,
