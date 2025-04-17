@@ -155,3 +155,33 @@ class TestVision:
             )))
         assert 'not_cam' in str(excinfo.value)
 
+    @patch('viam.components.camera.Camera.get_resource_name', return_value="fake_cam")
+    @patch.object(TorchVisionService, 'get_image_from_dependency', new_callable=AsyncMock)
+    def test_get_detections(self, get_image_from_dependency, fake_cam):
+        vision =  TorchVisionService(
+            name='tvs'
+        )
+        vision.camera_name = "fake_cam"
+        get_image_from_dependency.return_value = input_image
+
+        cfg = ServiceConfig(
+            attributes=dict_to_struct(
+                {
+                    "model_name": "fasterrcnn_resnet50_fpn",
+                    "camera_name": "fake_cam",
+                }
+            )
+        )
+
+        vision.reconfigure(cfg, dependencies={"fake_cam": Mock()})
+        response = asyncio.run(vision.get_detections_from_camera("fake_cam"))
+        assert response is not None
+        assert response[0].x_min is not None
+        assert response[0].y_min is not None
+        assert response[0].x_max is not None
+        assert response[0].y_max is not None
+        assert response[0].x_min_normalized is not None
+        assert response[0].y_min_normalized is not None
+        assert response[0].x_max_normalized is not None
+        assert response[0].y_max_normalized is not None
+

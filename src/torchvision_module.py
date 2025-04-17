@@ -246,7 +246,7 @@ class TorchVisionService(Vision, Reconfigurable):
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)[0]
-        return self.wrap_detections(prediction)
+        return self.wrap_detections(prediction, image.shape)
 
     async def get_classifications(
         self,
@@ -310,7 +310,7 @@ class TorchVisionService(Vision, Reconfigurable):
         input_tensor = self.preprocessor(image)
         with torch.no_grad():
             prediction: Tensor = self.model(input_tensor)[0]
-        return self.wrap_detections(prediction)
+        return self.wrap_detections(prediction, image.shape)
 
     async def get_properties(
         self,
@@ -366,7 +366,7 @@ class TorchVisionService(Vision, Reconfigurable):
         im = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
         return decode_image(im)
 
-    def wrap_detections(self, prediction: dict):
+    def wrap_detections(self, prediction: dict, image_shape: Sequence[int]):
         """_summary_
         converts prediction output tensor from torchvision model
         for viam API
@@ -379,17 +379,7 @@ class TorchVisionService(Vision, Reconfigurable):
         labels = [self.weights.meta["categories"][i] for i in prediction["labels"]]
         scores = prediction["scores"]
         boxes = prediction["boxes"].to(torch.int64).tolist()
-        res = [
-            Detection(
-                x_min=x_min,
-                y_min=y_min,
-                x_max=x_max,
-                y_max=y_max,
-                confidence=score,
-                class_name=label,
-            )
-            for (x_min, y_min, x_max, y_max), score, label in zip(boxes, scores, labels)
-        ]
+        res = self.make_detections(boxes, scores, labels, image_shape)
         res = self.filter_output(res)
         return res
 
@@ -414,3 +404,32 @@ class TorchVisionService(Vision, Reconfigurable):
         ]
         res = self.filter_output(res)
         return res
+
+    def make_detections(self, boxes, scores, labels, image_shape):
+        if image_shape[0] == 0 or image_shape[1] == 0:
+            return [
+                Detection(
+                    x_min=x_min,
+                    y_min=y_min,
+                    x_max=x_max,
+                    y_max=y_max,
+                    confidence=score,
+                    class_name=label,
+                )
+                for (x_min, y_min, x_max, y_max), score, label in zip(boxes, scores, labels)
+            ]
+        return [
+            Detection(
+                x_min=x_min,
+                y_min=y_min,
+                x_max=x_max,
+                y_max=y_max,
+                x_min_normalized=x_min / image_shape[1],
+                y_min_normalized=y_min / image_shape[0],
+                x_max_normalized=x_max / image_shape[1],
+                y_max_normalized=y_max / image_shape[0],
+                confidence=score,
+                class_name=label,
+            )
+            for (x_min, y_min, x_max, y_max), score, label in zip(boxes, scores, labels)
+        ]
