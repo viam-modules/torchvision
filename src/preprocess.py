@@ -35,7 +35,7 @@ class ToChannelsLast:
 # pylint: disable=too-few-public-methods
 class Preprocessor:
     """Main wrapper class that performs a series of preprocessing steps"""
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
     def __init__(
         self,
         weights_transform=None,

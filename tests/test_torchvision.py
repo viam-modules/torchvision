@@ -92,7 +92,7 @@ class TestVision:
 
         # without point clouds = True
         result = asyncio.run(camera.capture_all_from_camera(
-            'camera1',
+            'fake_cam',
             return_image=True,
             return_classifications=True,
             return_detections=True
@@ -103,7 +103,7 @@ class TestVision:
         assert result.detections is None
 
         result = asyncio.run(camera.capture_all_from_camera(
-            'camera1',
+            'fake_cam',
             return_image=True,
             return_classifications=True,
             return_detections=True,
@@ -116,3 +116,42 @@ class TestVision:
         assert result.objects is None
         # mock_get_classifications.assert_called_once_with('test_image', 1)
         # mock_get_detections.assert_called_once_with('test_image', timeout=None)
+
+    @patch('viam.components.camera.Camera.get_resource_name', return_value="fake_cam")
+    @patch.object(TorchVisionService, 'get_image_from_dependency', new_callable=AsyncMock)
+    def test_default_camera_behavior(self, get_image_from_dependency, fake_cam):
+        vs = TorchVisionService(
+            name='tvs'
+        )
+        get_image_from_dependency.return_value = input_image
+
+        # vs.camera_name = "fake_cam"
+        vs.reconfigure(cfg, dependencies={"fake_cam": Mock()})
+        
+        result = vs.get_classifications_from_camera(
+            "",
+            count=1,
+        )
+        assert result is not None
+
+        result = asyncio.run(vs.capture_all_from_camera(
+            "",
+            return_classifications=True,
+        ))
+        assert result is not None
+        assert result.classifications is not None
+
+        with pytest.raises(ValueError) as excinfo:
+            asyncio.run(vs.get_classifications_from_camera(
+                "not_cam",
+                count=1,
+            ))
+        assert 'not_cam' in str(excinfo.value)
+        with pytest.raises(ValueError) as excinfo:
+            asyncio.run(asyncio.run(vs.capture_all_from_camera(
+                "not_cam",
+                return_classifications=True,
+                return_detections=True,
+            )))
+        assert 'not_cam' in str(excinfo.value)
+
