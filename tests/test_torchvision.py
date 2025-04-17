@@ -180,8 +180,7 @@ class TestVision:
         assert response[0].y_min is not None
         assert response[0].x_max is not None
         assert response[0].y_max is not None
-        assert response[0].x_min_normalized is not None
-        assert response[0].y_min_normalized is not None
-        assert response[0].x_max_normalized is not None
-        assert response[0].y_max_normalized is not None
-
+        assert response[0].x_min_normalized == response[0].x_min / input_image.shape[1]
+        assert response[0].y_min_normalized == response[0].y_min / input_image.shape[0]
+        assert response[0].x_max_normalized == response[0].x_max / input_image.shape[1]
+        assert response[0].y_max_normalized == response[0].y_max / input_image.shape[0]
