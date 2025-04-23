@@ -11,6 +11,8 @@ from typing import Any, Mapping
 
 from PIL import Image
 
+from viam.components.camera import Camera
+from viam.media.video import CameraMimeType
 from viam.media.utils.pil import pil_to_viam_image
 from viam.proto.app.robot import ComponentConfig
 
@@ -20,7 +22,8 @@ from src.torchvision_module import TorchVisionService
 from google.protobuf.struct_pb2 import Struct
 
 path_to_input_image = "tests/grasshopper.jpg"
-input_image = np.array(Image.open(path_to_input_image))
+image = Image.open(path_to_input_image)
+input_image = np.array(image)
 cfg = ServiceConfig(
     attributes=dict_to_struct(
         {
@@ -33,9 +36,9 @@ cfg = ServiceConfig(
 VISION_SERVICE_NAME = "vision1"
 DETECTIONS = []
 PROPERTIES = Properties(
-    implements_classification=True, 
-    implements_detection=False, 
-    implements_get_object_pcd=False
+    classifications_supported=True, 
+    detections_supported=False,
+    object_point_clouds_supported=False
 )
 
 def make_component_config(dictionary: Mapping[str, Any]) -> ComponentConfig:
@@ -80,15 +83,14 @@ class TestVision:
         assert response == PROPERTIES
 
     @patch('viam.components.camera.Camera.get_resource_name', return_value="fake_cam")
-    @patch.object(TorchVisionService, 'get_image_from_dependency', new_callable=AsyncMock)
-    def test_capture_all_from_camera(self, get_image_from_dependency, fake_cam):
+    def test_capture_all_from_camera(self, fake_cam):
         camera =  TorchVisionService(
             name='tvs'
         )
         camera.camera_name = "fake_cam"
-        get_image_from_dependency.return_value = input_image
 
         camera.reconfigure(cfg, dependencies={"fake_cam": Mock()})
+        camera.camera.get_image = AsyncMock(return_value=pil_to_viam_image(image, mime_type=CameraMimeType.JPEG))
 
         # without point clouds = True
         result = asyncio.run(camera.capture_all_from_camera(
@@ -118,16 +120,14 @@ class TestVision:
         # mock_get_detections.assert_called_once_with('test_image', timeout=None)
 
     @patch('viam.components.camera.Camera.get_resource_name', return_value="fake_cam")
-    @patch.object(TorchVisionService, 'get_image_from_dependency', new_callable=AsyncMock)
-    def test_default_camera_behavior(self, get_image_from_dependency, fake_cam):
+    def test_default_camera_behavior(self, fake_cam):
         vs = TorchVisionService(
             name='tvs'
         )
-        get_image_from_dependency.return_value = input_image
 
-        # vs.camera_name = "fake_cam"
         vs.reconfigure(cfg, dependencies={"fake_cam": Mock()})
-        
+        vs.camera.get_image = AsyncMock(return_value=pil_to_viam_image(image, mime_type=CameraMimeType.JPEG))
+
         result = vs.get_classifications_from_camera(
             "",
             count=1,
@@ -155,3 +155,32 @@ class TestVision:
             )))
         assert 'not_cam' in str(excinfo.value)
 
+    @patch('viam.components.camera.Camera.get_resource_name', return_value="fake_cam")
+    @patch.object(TorchVisionService, 'get_image_from_dependency', new_callable=AsyncMock)
+    def test_get_detections(self, get_image_from_dependency, fake_cam):
+        vision =  TorchVisionService(
+            name='tvs'
+        )
+        vision.camera_name = "fake_cam"
+        get_image_from_dependency.return_value = input_image
+
+        cfg = ServiceConfig(
+            attributes=dict_to_struct(
+                {
+                    "model_name": "fasterrcnn_resnet50_fpn",
+                    "camera_name": "fake_cam",
+                }
+            )
+        )
+
+        vision.reconfigure(cfg, dependencies={"fake_cam": Mock()})
+        response = asyncio.run(vision.get_detections_from_camera("fake_cam"))
+        assert response is not None
+        assert response[0].x_min is not None
+        assert response[0].y_min is not None
+        assert response[0].x_max is not None
+        assert response[0].y_max is not None
+        assert response[0].x_min_normalized == response[0].x_min / input_image.shape[1]
+        assert response[0].y_min_normalized == response[0].y_min / input_image.shape[0]
+        assert response[0].x_max_normalized == response[0].x_max / input_image.shape[1]
+        assert response[0].y_max_normalized == response[0].y_max / input_image.shape[0]

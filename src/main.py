@@ -15,7 +15,7 @@ async def main():
     registry before the module adds the resource model.
     """
     Registry.register_resource_creator(
-        Vision.SUBTYPE,
+        Vision.API,
         TorchVisionService.MODEL,
         ResourceCreatorRegistration(
             TorchVisionService.new_service,
@@ -24,7 +24,7 @@ async def main():
     )
     module = Module.from_args()
 
-    module.add_model_from_registry(Vision.SUBTYPE, TorchVisionService.MODEL)
+    module.add_model_from_registry(Vision.API, TorchVisionService.MODEL)
     await module.start()
 
 
