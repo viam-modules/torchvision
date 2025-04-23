@@ -99,13 +99,13 @@ class TorchVisionService(Vision, Reconfigurable):
 
         model_name = get_attribute_from_config("model_name", None, str)
         self.properties = Properties(
-            implements_classification=True,
-            implements_detection=False,
-            implements_get_object_pcd=False,
+            classifications_supported=True,
+            detections_supported=False,
+            object_point_clouds_supported=False,
         )
         if model_name in DETECTION_MODELS:
-            self.properties.implements_classification = False
-            self.properties.implements_detection = True
+            self.properties.classifications_supported = False
+            self.properties.detections_supported = True
 
         weights = get_attribute_from_config("weights", "DEFAULT")
         try:
@@ -197,8 +197,7 @@ class TorchVisionService(Vision, Reconfigurable):
                 "is not the configured 'camera_name'",
                 self.camera_name,
             )
-        image = await self.get_image_from_dependency(camera_name)
-
+        image = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
         if return_image:
             result.image = image
         if return_classifications:
@@ -227,7 +226,7 @@ class TorchVisionService(Vision, Reconfigurable):
         timeout: Optional[float] = None,
         **kwargs,
     ) -> List[PointCloudObject]:
-        if not self.properties.implements_get_object_pcd:
+        if not self.properties.object_point_clouds_supported:
             raise NotImplementedError
         return 1
 
@@ -239,7 +238,7 @@ class TorchVisionService(Vision, Reconfigurable):
         timeout: float,
     ) -> List[Detection]:
         """Get detections from an image"""
-        if not self.properties.implements_detection:
+        if not self.properties.detections_supported:
             raise NotImplementedError
         LOGGER.info(f"input image is: {type(image)}")
         image = decode_image(image)
@@ -257,7 +256,7 @@ class TorchVisionService(Vision, Reconfigurable):
         timeout: Optional[float] = None,
     ) -> List[Classification]:
         """Get classifications from image"""
-        if not self.properties.implements_classification:
+        if not self.properties.classifications_supported:
             return NotImplementedError
         image = decode_image(image)
         input_tensor = self.preprocessor(image)
@@ -276,7 +275,7 @@ class TorchVisionService(Vision, Reconfigurable):
         timeout: Optional[float] = None,
     ) -> List[Classification]:
         """Gets classifications from a camera dependency"""
-        if not self.properties.implements_classification:
+        if not self.properties.classifications_supported:
             raise NotImplementedError
 
         if camera_name not in (self.camera_name, ""):
@@ -296,7 +295,7 @@ class TorchVisionService(Vision, Reconfigurable):
         self, camera_name: str, *, extra: Mapping[str, Any] = None, timeout: float = None,
     ) -> List[Detection]:
         """Gets detections from a camera dependency"""
-        if not self.properties.implements_detection:
+        if not self.properties.detections_supported:
             raise NotImplementedError
         if camera_name not in (self.camera_name, ""):
             raise ValueError(

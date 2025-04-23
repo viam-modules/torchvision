@@ -35,7 +35,7 @@ def decode_image(image: Union[Image.Image, ViamImage, np.ndarray]) -> np.ndarray
         im = Image.open(BytesIO(image.data), formats=LIBRARY_SUPPORTED_FORMATS).convert(
             "RGB"
         )  # convert in RGB png openened in RGBA
-        return im
+        return np.array(im)
     res = image.convert("RGB")
     rgb = np.array(res)
     return rgb
