@@ -10,8 +10,8 @@
     }
   ],
   "build": {
-    "setup": "setup.sh",
-    "build": "build.sh",
+    "setup": "./setup.sh",
+    "build": "./build.sh",
     "path": "dist/main",
     "arch": [
       "linux/amd64",
