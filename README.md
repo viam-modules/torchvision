@@ -32,7 +32,7 @@ Depending on the type of models configured, the module implements:
 To configure the `torchvision` model, use the following template:
 
 ```json
-"attributes": {
+{
   "model_name": <string>,
   "labels_confidences": {
     <label1>: <float>,
