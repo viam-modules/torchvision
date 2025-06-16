@@ -6,7 +6,9 @@
   "models": [
     {
       "api": "rdk:service:vision",
-      "model": "viam:vision:torchvision"
+      "model": "viam:vision:torchvision",
+      "short_description": "Service wrapper for the torchvision computer vision library.",
+      "markdown_link": "README.md#viamvisiontorchvision"
     }
   ],
   "build": {
