@@ -17,8 +17,7 @@
     "path": "dist/main",
     "arch": [
       "linux/amd64",
-      "linux/arm64",
-      "darwin/amd64"
+      "linux/arm64"
     ]
   },
   "entrypoint": "dist/main"
