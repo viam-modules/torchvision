@@ -1,9 +1,9 @@
 """Module that defines the Vision Service that wraps torchvision functionality"""
 
-from typing import ClassVar, List, Mapping, Sequence, Any, Dict, Optional, Union
+from typing import ClassVar, List, Mapping, Sequence, Any, Dict, Optional, Union, Tuple
 from typing_extensions import Self
 from viam.components.camera import Camera
-from viam.media.video import ViamImage, CameraMimeType
+from viam.media.video import ViamImage
 from viam.proto.service.vision import Classification, Detection
 from viam.services.vision import Vision, CaptureAllResult
 from viam.module.types import Reconfigurable
@@ -47,7 +47,7 @@ class TorchVisionService(Vision, Reconfigurable):
         return service
 
     @classmethod
-    def validate_config(cls, config: ServiceConfig) -> Sequence[str]:
+    def validate_config(cls, config: ServiceConfig) -> Tuple[Sequence[str], Sequence[str]]:
         """Validates JSON Configuration"""
         model_name = config.attributes.fields["model_name"].string_value
         camera_name = config.attributes.fields["camera_name"].string_value
@@ -60,7 +60,7 @@ class TorchVisionService(Vision, Reconfigurable):
             raise Exception(
                 "A camera name is required for this vision service module."
             )
-        return [camera_name]
+        return [camera_name], []
 
     def reconfigure(
         self, config: ServiceConfig, dependencies: Mapping[ResourceName, ResourceBase]
@@ -197,19 +197,21 @@ class TorchVisionService(Vision, Reconfigurable):
                 "is not the configured 'camera_name'",
                 self.camera_name,
             )
-        image = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
+        images, _ = await self.camera.get_images()
+        if images is None or len(images) == 0 and (return_image or return_classifications or return_detections):
+            raise ValueError("No images returned by get_images")
         if return_image:
-            result.image = image
+            result.image = images[0]
         if return_classifications:
             try:
-                classifications = await self.get_classifications(image, 1)
+                classifications = await self.get_classifications(images[0], 1)
                 result.classifications = classifications
             # pylint: disable=broad-exception-caught
             except Exception as e:
                 LOGGER.info(f"getClassifications failed: {e}")
         if return_detections:
             try:
-                detections = await self.get_detections(image, timeout=timeout, extra=None)
+                detections = await self.get_detections(images[0], timeout=timeout, extra=None)
                 result.detections = detections
             # pylint: disable=broad-exception-caught
             except Exception as e:
@@ -362,8 +364,10 @@ class TorchVisionService(Vision, Reconfigurable):
 
     async def get_image_from_dependency(self, camera_name: str):
         # cam = self.dependencies[Camera.get_resource_name("")]
-        im = await self.camera.get_image(mime_type=CameraMimeType.JPEG)
-        return decode_image(im)
+        imgs, _ = await self.camera.get_images()
+        if imgs is None or len(imgs) == 0:
+            raise ValueError("No images returned by get_images")
+        return decode_image(imgs[0])
 
     def wrap_detections(self, prediction: dict, image_shape: Sequence[int]):
         """_summary_

@@ -65,8 +65,8 @@ class TestVision:
     @pytest.mark.asyncio
     async def test_validate(self):
         with pytest.raises(Exception):
-            response = TorchVisionService.validate_config(config=config)
-        response = TorchVisionService.validate_config(config=config2)
+            response, _ = TorchVisionService.validate_config(config=config)
+        response, _ = TorchVisionService.validate_config(config=config2)
 
     @pytest.mark.asyncio
     @patch('viam.components.camera.Camera.get_resource_name', return_value="fake_cam")
@@ -90,7 +90,7 @@ class TestVision:
         camera.camera_name = "fake_cam"
 
         camera.reconfigure(cfg, dependencies={"fake_cam": Mock()})
-        camera.camera.get_image = AsyncMock(return_value=pil_to_viam_image(image, mime_type=CameraMimeType.JPEG))
+        camera.camera.get_images = AsyncMock(return_value=[[pil_to_viam_image(image, mime_type=CameraMimeType.JPEG)], None])
 
         # without point clouds = True
         result = asyncio.run(camera.capture_all_from_camera(
@@ -126,7 +126,7 @@ class TestVision:
         )
 
         vs.reconfigure(cfg, dependencies={"fake_cam": Mock()})
-        vs.camera.get_image = AsyncMock(return_value=pil_to_viam_image(image, mime_type=CameraMimeType.JPEG))
+        vs.camera.get_images = AsyncMock(return_value=[[pil_to_viam_image(image, mime_type=CameraMimeType.JPEG)], None])
 
         result = vs.get_classifications_from_camera(
             "",
