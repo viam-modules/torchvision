@@ -3,11 +3,13 @@ numpy<2.0.0
 pyinstaller
 google-api-python-client
 torch; sys_platform == 'darwin'
-torch==2.2.2+cpu; sys_platform  == 'linux'
+torch==2.2.2+cpu; sys_platform == 'linux' and platform_machine == 'x86_64'
+torch==2.2.2; sys_platform == 'linux' and platform_machine == 'aarch64'
 -f https://download.pytorch.org/whl/cpu/torch_stable.html
 
 torchvision == 0.21; sys_platform  == 'darwin'
-torchvision==0.17.2+cpu;sys_platform  == 'linux'
+torchvision==0.17.2+cpu; sys_platform == 'linux' and platform_machine == 'x86_64'
+torchvision==0.17.2; sys_platform == 'linux' and platform_machine == 'aarch64'
 -f https://download.pytorch.org/whl/cpu/torch_stable.html
 
 protobuf>4.25.3
