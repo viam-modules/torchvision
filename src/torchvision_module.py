@@ -206,15 +206,13 @@ class TorchVisionService(Vision, Reconfigurable):
             try:
                 classifications = await self.get_classifications(images[0], 1)
                 result.classifications = classifications
-            # pylint: disable=broad-exception-caught
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 LOGGER.info(f"getClassifications failed: {e}")
         if return_detections:
             try:
                 detections = await self.get_detections(images[0], timeout=timeout, extra=None)
                 result.detections = detections
-            # pylint: disable=broad-exception-caught
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 LOGGER.info(f"getDetections failed: {e}")
 
         return result
