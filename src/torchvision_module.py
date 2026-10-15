@@ -4,7 +4,7 @@ from typing import ClassVar, List, Mapping, Sequence, Any, Dict, Optional, Union
 from typing_extensions import Self
 from viam.components.camera import Camera
 from viam.media.video import ViamImage
-from viam.proto.service.vision import Classification, Detection
+from viam.proto.service.vision import Classification, Detection, Detection3D
 from viam.services.vision import Vision, CaptureAllResult
 from viam.module.types import Reconfigurable
 from viam.resource.types import Model, ModelFamily
@@ -150,6 +150,7 @@ class TorchVisionService(Vision, Reconfigurable):
         return_classifications: bool = False,
         return_detections: bool = False,
         return_object_point_clouds: bool = False,
+        return_detections_3d: bool = False,
         *,
         extra: Optional[Mapping[str, Any]] = None,
         timeout: Optional[float] = None,
@@ -216,6 +217,15 @@ class TorchVisionService(Vision, Reconfigurable):
                 LOGGER.info(f"getDetections failed: {e}")
 
         return result
+
+    async def get_detections_3d(
+        self,
+        camera_name: str,
+        *,
+        extra: Optional[Mapping[str, Any]] = None,
+        timeout: Optional[float] = None,
+    ) -> List[Detection3D]:
+        raise NotImplementedError
 
     # pylint: disable=missing-function-docstring
     async def get_object_point_clouds(
